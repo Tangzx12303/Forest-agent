@@ -17,3 +17,4 @@ pyyaml==6.0.3
 PyMySQL==1.2.0
 requests
 pytest==9.1.1
+torch>=2.2

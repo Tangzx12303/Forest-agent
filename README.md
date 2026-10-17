@@ -29,7 +29,7 @@
 | Agent / LLM | LangChain 1.x、LangGraph、LangChain OpenAI 兼容接口 |
 | 向量检索 | Chroma、DashScope `text-embedding-v4`、MMR |
 | 前端 | Vue 3.5（unpkg CDN，无需 Node.js 构建）、原生 CSS / SVG |
-| 可选训练 | PyTorch 2.2+（`requirements-ml.txt`） |
+| 可选训练 | PyTorch 2.2+（已包含在 `requirements.txt`；未安装时自动跳过训练功能） |
 | 网络依赖 | 聊天/Embedding 需访问对应供应商 API；前端 Vue 与 Google Fonts 默认从 CDN 加载 |
 
 ## 本地环境
@@ -227,7 +227,8 @@ python -m pytest tests/test_live_agent.py -q
 训练数据由 `agent/golden_cases.json` 和可选的真实对话记录组成。启用记录后，每轮对话会写入 `data/training/turns.jsonl`（包含问题和回答原文，仅保存在本机）：
 
 ```powershell
-python -m pip install -r requirements-ml.txt
+# PyTorch 已包含在 requirements.txt；如当前环境未安装，重新执行一次依赖安装即可。
+python -m pip install -r requirements.txt
 $env:TRAINING_CAPTURE="true"    # PowerShell；或在 .env 设置 TRAINING_CAPTURE=true
 python -m training.train --epochs 40
 ```
@@ -296,8 +297,7 @@ Forest-agent/
 ├── utils/security.py       # PBKDF2 密码哈希
 ├── api.py                  # FastAPI 接口与静态页面入口
 ├── run.py                  # 启动脚本：终端输出可点击的本机网址
-├── requirements.txt        # 主依赖
-├── requirements-ml.txt     # 可选 PyTorch 依赖
+├── requirements.txt        # 全部依赖（含可选 PyTorch 训练模块）
 └── .env.example            # 环境变量模板
 ```
 

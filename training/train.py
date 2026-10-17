@@ -1,7 +1,7 @@
 """Train the optional local tool router / quality scorer.
 
 Example:
-    pip install -r requirements-ml.txt
+    pip install -r requirements.txt
     set TRAINING_CAPTURE=true        # PowerShell: $env:TRAINING_CAPTURE="true"
     python -m training.train --epochs 40
 
@@ -210,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         import torch  # noqa: F401
     except ImportError:
-        print("尚未安装 PyTorch。请先运行：python -m pip install -r requirements-ml.txt")
+        print("尚未安装 PyTorch。请先运行：python -m pip install -r requirements.txt")
         return 2
 
     turns = load_turns(args.data)
