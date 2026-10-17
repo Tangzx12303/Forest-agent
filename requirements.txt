@@ -1,0 +1,19 @@
+# Python 3.10+
+langchain==1.4.0
+langchain-core==1.6.2
+langchain-community==0.4.2
+langgraph==1.2.11
+langchain-openai==1.6.2
+langchain-chroma==1.1.0
+langchain-text-splitters==1.1.2
+chromadb==1.5.9
+dashscope==1.27.4
+openai==3.16.2
+fastapi>=0.115,<1
+uvicorn[standard]>=0.34,<1
+pypdf==6.18.0
+python-dotenv==1.2.3
+pyyaml==6.0.3
+PyMySQL==1.2.0
+requests
+pytest==9.1.1

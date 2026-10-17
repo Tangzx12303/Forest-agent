@@ -1,0 +1,5 @@
+.chat-category-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:-4px 0 16px;padding:4px;border:1px solid var(--line);border-radius:8px;background:#edf1e9}
+.chat-category-switch button{min-height:38px;padding:7px 9px;border:0;border-radius:5px;background:transparent;color:var(--muted);font-size:14px;white-space:nowrap;transition:background-color .16s,color .16s}
+.chat-category-switch button.active{background:var(--paper);color:var(--pine);font-weight:700;box-shadow:0 1px 4px #20332c14}
+.chat-category-switch button:focus-visible{outline:2px solid var(--moss);outline-offset:1px}
+@media(max-width:420px){.chat-category-switch button{padding-inline:4px;font-size:13px}}

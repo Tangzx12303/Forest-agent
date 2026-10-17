@@ -1,0 +1,98 @@
+{
+  "base_name": "福州国家森林公园（示范路线配置）",
+  "source_note": "公园名称及景区线索参考福州国家森林公园公开页面；本项目的功能分区归类、地图示意点位、路线长度、时长、地形及无障碍字段均为开发演示数据，不代表园方发布或现场核验信息。地图连线只表示推荐顺序，不代表实际道路。正式使用前必须由基地运营方逐项校正。",
+  "sources": [
+    "https://www.fzfjgy.com/",
+    "https://www.fuzhou.gov.cn/"
+  ],
+  "zones": [
+    {
+      "id": "visitor_entry",
+      "name": "入口与游客服务区",
+      "function": "行程起点、休息补水与咨询服务的规划节点；具体服务设施以现场公告为准。",
+      "tags": ["休息", "补水", "咨询", "轻松"],
+      "intensity": "低",
+      "verified": false,
+      "map_position": [130, 500]
+    },
+    {
+      "id": "botanical_garden",
+      "name": "植物观赏与自然教育区（规划节点）",
+      "function": "以植物观察、自然解说和慢行体验为主题的规划节点；园内具体园区边界及开放设施需核实。",
+      "tags": ["植物", "自然教育", "观赏", "轻松", "亲子"],
+      "intensity": "低",
+      "verified": false,
+      "map_position": [340, 420]
+    },
+    {
+      "id": "banyan_grove",
+      "name": "古树森林体验区（规划节点）",
+      "function": "以林下漫步、观察树木和安静休息为主题的规划节点；具体点位、步道条件需核实。",
+      "tags": ["古树", "森林漫步", "观赏", "舒缓"],
+      "intensity": "低",
+      "verified": false,
+      "map_position": [550, 300]
+    },
+    {
+      "id": "longtan_trail",
+      "name": "龙潭方向森林步道（规划节点）",
+      "function": "以溪谷景观和森林步行为主题的规划节点；不表示步道当前开放，也不代表实时水情或路况。",
+      "tags": ["溪谷", "森林步道", "自然观察", "中等"],
+      "intensity": "中",
+      "verified": false,
+      "map_position": [730, 430]
+    },
+    {
+      "id": "forest_ridge",
+      "name": "山地林道体验区（规划节点）",
+      "function": "以较长距离林道步行为主题的规划节点；坡度、台阶、救援与天气风险均待现场核验。",
+      "tags": ["林道", "耐力步行", "登高", "较高强度"],
+      "intensity": "高",
+      "verified": false,
+      "map_position": [820, 170]
+    }
+  ],
+  "trails": [
+    {"from": "visitor_entry", "to": "botanical_garden", "distance_m": 420, "points": [[130, 500], [210, 490], [260, 450], [340, 420]]},
+    {"from": "botanical_garden", "to": "banyan_grove", "distance_m": 510, "points": [[340, 420], [410, 380], [470, 340], [550, 300]]},
+    {"from": "visitor_entry", "to": "banyan_grove", "distance_m": 850, "points": [[130, 500], [250, 540], [380, 500], [460, 400], [550, 300]]},
+    {"from": "banyan_grove", "to": "longtan_trail", "distance_m": 680, "points": [[550, 300], [610, 330], [670, 380], [730, 430]]},
+    {"from": "longtan_trail", "to": "forest_ridge", "distance_m": 920, "points": [[730, 430], [780, 360], [760, 280], [820, 170]]},
+    {"from": "banyan_grove", "to": "forest_ridge", "distance_m": 1050, "points": [[550, 300], [630, 250], [710, 210], [820, 170]]}
+  ],
+  "routes": [
+    {
+      "id": "gentle_nature",
+      "name": "轻松自然观察线（演示）",
+      "zone_ids": ["visitor_entry", "botanical_garden", "banyan_grove"],
+      "distance_km": 1.8,
+      "duration_minutes": 60,
+      "intensity": "低",
+      "tags": ["植物", "自然教育", "古树", "观赏", "轻松", "亲子"],
+      "wheelchair_accessible": null,
+      "terrain_note": "路线长度和路面条件未核验；不能据此确认轮椅或助行器可通行。"
+    },
+    {
+      "id": "forest_stream",
+      "name": "森林溪谷体验线（演示）",
+      "zone_ids": ["visitor_entry", "banyan_grove", "longtan_trail"],
+      "distance_km": 3.6,
+      "duration_minutes": 120,
+      "intensity": "中",
+      "tags": ["溪谷", "森林步道", "森林漫步", "自然观察"],
+      "wheelchair_accessible": null,
+      "terrain_note": "可能包含坡道或台阶，路线连接、长度和现场状况均需核实。"
+    },
+    {
+      "id": "forest_endurance",
+      "name": "山地林道体验线（演示）",
+      "zone_ids": ["visitor_entry", "longtan_trail", "forest_ridge"],
+      "distance_km": 6.5,
+      "duration_minutes": 210,
+      "intensity": "高",
+      "tags": ["林道", "耐力步行", "登高", "森林步道"],
+      "wheelchair_accessible": null,
+      "terrain_note": "较长距离及爬升相关信息均为规划假设；出行前须核实天气、开放与路况。"
+    }
+  ]
+}

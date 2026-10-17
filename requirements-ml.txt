@@ -1,0 +1,4 @@
+# Optional local learning loop. Install only if you want to train the PyTorch
+# tool router/quality model; the main application runs without it.
+# CPU wheels are sufficient for this small model.
+torch>=2.2

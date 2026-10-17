@@ -1,0 +1,15 @@
+collection_name: forest_wellness
+persist_directory: chroma_db
+knowledge_dir: data/knowledge
+chunk_size: 700
+chunk_overlap: 120
+retrieval_k: 6
+separators:
+  - "\n\n"
+  - "。"
+  - "！"
+  - "？"
+  - "；"
+  - "，"
+  - " "
+  - ""

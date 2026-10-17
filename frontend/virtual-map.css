@@ -1,0 +1,20 @@
+.virtual-map{display:block;width:100%;height:auto;min-height:320px;aspect-ratio:960/620;background-color:#eef2e9;background-image:radial-gradient(#cad6c7 0.8px,transparent 0.8px);background-size:18px 18px}
+.map-water{fill:none;stroke:#a8d4d0;stroke-width:25;stroke-linecap:round;opacity:.72}
+.map-grove{fill:#d8e5ce;opacity:.76}
+.map-grove-alt{fill:#e5e0ca;opacity:.76}
+.trail-line{fill:none;stroke:#718779;stroke-width:9;stroke-linecap:round;stroke-linejoin:round;opacity:.75}
+.suggested-line{fill:none;stroke:#d77c58;stroke-width:5;stroke-dasharray:12 11;stroke-linecap:round;stroke-linejoin:round}
+.calculated-line{fill:none;stroke:#176b87;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}
+.map-zone{cursor:pointer;outline:none}
+.map-zone circle{fill:#fbfcf8;stroke:#557a51;stroke-width:4;transition:fill .16s,stroke-width .16s}
+.map-zone.selected circle{fill:#e2ad74;stroke:#8d593e;stroke-width:5}
+.map-zone:hover circle,.map-zone:focus circle{stroke:#176b87;stroke-width:7}
+.map-zone text{fill:#173b32;font-size:15px;font-weight:700;pointer-events:none}
+.map-zone .zone-label{font-size:14px;font-weight:600;paint-order:stroke;stroke:#f7f8f1;stroke-width:5px;stroke-linejoin:round}
+.map-caption{fill:#173b32;font-size:22px;font-weight:700}
+.map-north{fill:#557a51;font-size:16px;font-weight:700}
+.chat-memory{margin-top:22px;padding-top:17px;border-top:1px solid var(--line)}
+.chat-memory h3{margin:0 0 9px;color:var(--pine);font-size:15px}
+.chat-memory p{margin:0;color:var(--ink);font-size:14px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
+.chat-memory .memory-empty{color:var(--muted)}
+@media(max-width:760px){.virtual-map{min-height:300px}.map-zone .zone-label{font-size:17px}.map-caption{font-size:25px}}

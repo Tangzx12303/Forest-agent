@@ -1,0 +1,63 @@
+# Only list models whose API key is available in the local .env.
+default_model: qwen-plus
+models:
+  - id: qwen-plus
+    label: 通义千问 Plus
+    provider: dashscope
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model: qwen-plus
+    api_key_env: DASHSCOPE_API_KEY
+  - id: qwen-max
+    label: 通义千问 Max
+    provider: dashscope
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model: qwen-max
+    api_key_env: DASHSCOPE_API_KEY
+  - id: qwen-turbo
+    label: 通义千问 Turbo
+    provider: dashscope
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model: qwen-turbo
+    api_key_env: DASHSCOPE_API_KEY
+  - id: deepseek-chat
+    label: DeepSeek Chat
+    provider: deepseek
+    base_url: https://api.deepseek.com/v1
+    model: deepseek-chat
+    api_key_env: DEEPSEEK_API_KEY
+  - id: gpt-4o-mini
+    label: OpenAI GPT-4o mini
+    provider: openai
+    base_url: https://api.openai.com/v1
+    model: gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+  - id: gpt-4o
+    label: OpenAI GPT-4o
+    provider: openai
+    base_url: https://api.openai.com/v1
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+  - id: glm-4-flash
+    label: 智谱 GLM-4-Flash
+    provider: zhipu
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    model: glm-4-flash
+    api_key_env: ZHIPUAI_API_KEY
+  - id: glm-4-plus
+    label: 智谱 GLM-4-Plus
+    provider: zhipu
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    model: glm-4-plus
+    api_key_env: ZHIPUAI_API_KEY
+  - id: moonshot-v1-8k
+    label: 月之暗面 Moonshot
+    provider: moonshot
+    base_url: https://api.moonshot.cn/v1
+    model: moonshot-v1-8k
+    api_key_env: MOONSHOT_API_KEY
+  - id: moonshot-v1-32k
+    label: 月之暗面 Moonshot 32K
+    provider: moonshot
+    base_url: https://api.moonshot.cn/v1
+    model: moonshot-v1-32k
+    api_key_env: MOONSHOT_API_KEY

@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+chroma_db/
+logs/
+reports/
+data/training/*.jsonl
+data/training/*.pt
+.DS_Store
