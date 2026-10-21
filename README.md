@@ -286,7 +286,7 @@ Forest-agent/
 ├── rag/vector_store.py     # Chroma 索引、MMR 检索
 ├── services/virtual_map.py # 虚拟步道网络最短路径
 ├── tests/                  # 17 个离线测试文件
-├── training/               # 必需的 PyTorch 工具路由/质量模型
+├── training/               # PyTorch 工具路由/质量模型
 │   ├── schema.py           # 每轮对话记录与规则质检
 │   ├── capture.py          # JSONL 训练样本落盘
 │   ├── features.py         # 哈希字符/词 n-gram 特征
