@@ -1,5 +1,13 @@
-.chat-category-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin:-4px 0 16px;padding:4px;border:1px solid var(--line);border-radius:8px;background:#edf1e9}
-.chat-category-switch button{min-height:38px;padding:7px 9px;border:0;border-radius:5px;background:transparent;color:var(--muted);font-size:14px;white-space:nowrap;transition:background-color .16s,color .16s}
-.chat-category-switch button.active{background:var(--paper);color:var(--pine);font-weight:700;box-shadow:0 1px 4px #20332c14}
-.chat-category-switch button:focus-visible{outline:2px solid var(--moss);outline-offset:1px}
-@media(max-width:420px){.chat-category-switch button{padding-inline:4px;font-size:13px}}
+.chat-category-switch{display:none}
+.chat-layout{display:grid;grid-template-columns:minmax(0,1fr) 268px;gap:20px;align-items:start}
+.chat-layout>.panel:first-child{min-width:0}
+.chat-history{display:flex;flex-direction:column;gap:14px;min-height:320px;max-height:min(68vh,720px)!important;overflow:auto;padding:20px 4px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);scrollbar-gutter:stable}
+.chat-history .empty-state{max-width:620px;padding:20px 0;color:var(--muted);line-height:1.9}
+.chat-history .bubble{max-width:min(88%,760px);padding:13px 16px;border:1px solid var(--line);border-radius:10px;background:#fff;line-height:1.85}
+.chat-history .bubble.user{align-self:flex-end;border-color:#d6e2cf;border-radius:10px 10px 2px 10px;background:#edf3e8}
+.chat-history .bubble.assistant{align-self:flex-start;border-radius:10px 10px 10px 2px}
+.chat-composer{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:10px;align-items:end;margin-top:16px}
+.chat-composer .textarea{min-height:96px;max-height:240px;resize:vertical;line-height:1.75}
+.chat-layout>.panel:last-child{position:sticky;top:20px}
+@media(max-width:900px){.chat-layout{grid-template-columns:minmax(0,1fr)}.chat-layout>.panel:last-child{position:static;order:0}}
+@media(max-width:520px){.chat-history .bubble{max-width:96%;padding:11px 12px}.chat-composer{grid-template-columns:minmax(0,1fr) 76px}.chat-composer .primary{width:76px!important}}

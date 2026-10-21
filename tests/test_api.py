@@ -1,4 +1,5 @@
 import anyio
+import re
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessageChunk
 
@@ -7,11 +8,31 @@ from db import repository
 
 
 def test_vue_frontend_is_served():
-    response = TestClient(app).get("/")
+    client = TestClient(app)
+    response = client.get("/")
 
     assert response.status_code == 200
     assert "森语" in response.text
-    assert "/static/app.js" in response.text
+    script_url = re.search(r"/static/app\.js\?v=[a-f0-9]+", response.text).group()
+    script = client.get(script_url)
+    assert script.status_code == 200
+    assert "const activeView = ref('chat')" in script.text
+    assert "chatCategory" not in script.text
+    assert 'vue.global.prod.js" defer' in response.text
+    assert 'media="print" onload="this.media=\'all\'"' in response.text
+    assert response.headers["cache-control"] == "no-store, max-age=0"
+
+
+def test_frontend_asset_version_changes_when_source_changes(monkeypatch, tmp_path):
+    from api import frontend_page
+
+    (tmp_path / "index.html").write_text('<script src="/static/app.js?v=__ASSET_VERSION__"></script>')
+    (tmp_path / "app.js").write_text("const version = 1;")
+    monkeypatch.setattr("api.FRONTEND_DIR", tmp_path)
+    first_version = frontend_page().body
+    (tmp_path / "app.js").write_text("const version = 2;")
+
+    assert frontend_page().body != first_version
 
 
 def test_lifespan_trains_local_model_before_database(monkeypatch):
@@ -47,6 +68,24 @@ def test_auth_me_clears_transcript_and_returns_only_summary(monkeypatch):
     assert cleared == [21]
     assert response["messages"] == []
     assert response["summary"] == "持续保留的摘要"
+
+
+def test_refresh_summary_rewrites_reader_summary(monkeypatch):
+    from api import SummaryRefreshRequest, refresh_chat_summary
+
+    calls = []
+    monkeypatch.setattr("api.list_model_presets", lambda: [{"id": "test-model"}])
+    monkeypatch.setattr("api.repository.load_summary", lambda _user_id: "旧清单摘要")
+    monkeypatch.setattr("api.get_model", lambda model_id: model_id)
+    monkeypatch.setattr(
+        "api.rewrite_summary",
+        lambda user_id, previous, model: calls.append((user_id, previous, model)) or "自然段摘要",
+    )
+
+    result = refresh_chat_summary(SummaryRefreshRequest(model_id="test-model"), {"id": 32, "role": "reader"})
+
+    assert result == {"summary": "自然段摘要"}
+    assert calls == [(32, "旧清单摘要", "test-model")]
 
 
 def test_chat_streams_text_then_updates_summary_without_persisting_transcript(monkeypatch):
@@ -90,7 +129,7 @@ def test_chat_streams_text_then_updates_summary_without_persisting_transcript(mo
     assert '"type": "token", "text": "输出"' in body
     assert '"type": "summary", "summary": "更新后摘要"' in body
     assert '"type":"done"' in body
-    assert any("身体健康问答" in str(message.content) for message in captured["messages"] if hasattr(message, "content"))
+    assert any("综合森林康养咨询" in str(message.content) for message in captured["messages"] if hasattr(message, "content"))
     assert all(
         "地图步行路线" not in str(message.content) and "分区顺序" not in str(message.content)
         for message in captured["messages"]

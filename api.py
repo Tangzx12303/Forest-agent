@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import secrets
@@ -6,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import SystemMessage
 from pydantic import BaseModel, Field
@@ -24,7 +25,7 @@ from config.settings import (
 )
 from db import repository
 from db.init_db import admin_count, initialize_database
-from memory.conversation import update_summary
+from memory.conversation import rewrite_summary, update_summary
 from model.factory import build_chat_model
 from rag.vector_store import VectorStoreService
 from services.virtual_map import calculate_virtual_route
@@ -124,6 +125,10 @@ class ChatRequest(BaseModel):
     model_id: str
     history: list[dict[str, str]] = Field(default_factory=list, max_length=16)
     category: str = "forest"
+
+
+class SummaryRefreshRequest(BaseModel):
+    model_id: str
 
 
 class RoutePreferences(BaseModel):
@@ -227,14 +232,32 @@ def models(_: dict = Depends(current_user)) -> dict:
     }
 
 
+@app.post("/api/chat/summary/refresh")
+def refresh_chat_summary(
+    payload: SummaryRefreshRequest,
+    user: dict = Depends(current_user),
+) -> dict:
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=403, detail="管理员账号不提供对话功能。")
+    allowed_models = {item["id"] for item in list_model_presets()}
+    if payload.model_id not in allowed_models:
+        raise HTTPException(status_code=400, detail="所选模型不可用。")
+    try:
+        previous = repository.load_summary(user["id"])
+        summary = rewrite_summary(user["id"], previous, get_model(payload.model_id))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"摘要整理暂不可用：{exc}") from exc
+    return {"summary": summary}
+
+
 @app.post("/api/chat")
 def chat(payload: ChatRequest, user: dict = Depends(current_user)) -> StreamingResponse:
     if user.get("role") == "admin":
         raise HTTPException(status_code=403, detail="管理员账号不提供对话功能，请使用读者账号咨询。")
     category_prompts = {
-        "forest": "本轮属于森林知识问答。回答森林生态、植物、森林环境、基地分区与地图知识，优先依据检索资料；需要地图或路线时，可调用地图和路线工具，不要编造资料外的事实。",
-        "health": "本轮属于身体健康问答。提供有依据的一般健康科普和安全建议，不作诊断或治疗方案；涉及步行能力时可调用路线工具，但不要给出个体化康复处方。",
-        "lifestyle": "本轮属于健康生活建议。围绕睡眠、活动、饮食、压力管理等给出可执行的一般建议；涉及基地活动时，可调用地图和路线工具。",
+        "forest": "本轮是综合森林康养咨询。根据用户问题自然回答森林生态与环境、一般健康知识、健康生活建议、基地分区及活动路线等内容；优先依据本地资料，健康内容仅作一般教育，不诊断或制定个体治疗方案。涉及地图或路线时可按需调用对应工具，并说明演示数据边界。",
+        "health": "本轮是综合森林康养咨询。根据用户问题自然回答森林生态与环境、一般健康知识、健康生活建议、基地分区及活动路线等内容；优先依据本地资料，健康内容仅作一般教育，不诊断或制定个体治疗方案。涉及地图或路线时可按需调用对应工具，并说明演示数据边界。",
+        "lifestyle": "本轮是综合森林康养咨询。根据用户问题自然回答森林生态与环境、一般健康知识、健康生活建议、基地分区及活动路线等内容；优先依据本地资料，健康内容仅作一般教育，不诊断或制定个体治疗方案。涉及地图或路线时可按需调用对应工具，并说明演示数据边界。",
     }
     if payload.category not in category_prompts:
         raise HTTPException(status_code=400, detail="咨询分类无效。")
@@ -502,12 +525,25 @@ def admin_delete_user(user_id: int, current: dict = Depends(administrator)) -> d
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
+def frontend_page() -> HTMLResponse:
+    index_path = FRONTEND_DIR / "index.html"
+    asset_paths = sorted(FRONTEND_DIR.glob("*.css")) + [FRONTEND_DIR / "app.js"]
+    fingerprint = hashlib.sha256(
+        b"".join(path.name.encode("utf-8") + path.read_bytes() for path in asset_paths)
+    ).hexdigest()[:12]
+    html = index_path.read_text(encoding="utf-8").replace("__ASSET_VERSION__", fingerprint)
+    return HTMLResponse(
+        html,
+        headers={"Cache-Control": "no-store, max-age=0", "Pragma": "no-cache"},
+    )
+
+
 @app.get("/", include_in_schema=False)
-def frontend_index() -> FileResponse:
-    return FileResponse(FRONTEND_DIR / "index.html")
+def frontend_index() -> HTMLResponse:
+    return frontend_page()
 
 
 @app.get("/{path:path}", include_in_schema=False)
-def frontend_fallback(path: str) -> FileResponse:
+def frontend_fallback(path: str) -> HTMLResponse:
     del path
-    return FileResponse(FRONTEND_DIR / "index.html")
+    return frontend_page()
