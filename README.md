@@ -2,7 +2,7 @@
 
 基于 Vue 3、FastAPI、LangChain 1.x（`create_agent` / LangGraph）、RAG（Chroma）与 MySQL 的森林康养环境咨询原型，示范对象为福州国家森林公园。项目提供设施/分区问答、森林与一般健康科普、读者注册登录、管理员账号与质检管理、多模型切换、虚拟二维基地分区路线规划、SSE 流式回答和滚动摘要记忆。
 
-在 Agent 能力上，项目内置 5 个工具（知识检索、虚拟地图、疗养路线推荐、步道计算、分区查询），支持同一轮组合调用并在聊天区直接渲染虚拟地图；附带 15 条金标集的 Agent 评测模块，以及可选的 PyTorch“工具路由 + 回答质量判定”学习闭环。
+在 Agent 能力上，项目内置 5 个工具（知识检索、虚拟地图、疗养路线推荐、步道计算、分区查询），支持同一轮组合调用并在聊天区直接渲染虚拟地图；附带 15 条金标集的 Agent 评测模块，以及服务启动时必跑的 PyTorch“工具路由 + 回答质量判定”本地训练流程。
 
 ## 能力说明
 
@@ -15,7 +15,7 @@
 - **身份与权限**：MySQL 保存账号、角色、启用状态、滚动摘要和逐轮质检记录，不保存完整聊天正文。密码使用 PBKDF2-HMAC-SHA256（310,000 次迭代 + 16 字节随机盐）哈希。服务端使用 Starlette `SessionMiddleware` 签发同源会话 Cookie；页面每次加载（含刷新、新开标签页）都会主动调用注销接口，必须重新登录。
 - **管理员功能**：管理员不提供咨询对话入口，可创建/停用/改角色/删除账号、索引知识库、查看普通读者的滚动摘要，以及查看按读者汇总的测试报告与逐轮质检明细；管理员不能删除当前登录的自身账号。
 - **Agent 金标评测**：`agent/golden_cases.json` 包含 15 条用例，评测器按工具召回、必备事实、禁用表述和资料引用打分并输出 JSON 报告。
-- **可选本地学习闭环**：安装 PyTorch 后，可把金标集和每轮真实对话的规则质检结果用于训练轻量的“工具路由 + 回答质量判定”模型；下一轮对话会把高置信度工具建议作为参考注入上下文。该模块**不微调云端大模型**，也不改变医疗安全边界。
+- **本地模型训练**：每次服务启动都会用项目内置监督样本、Agent 金标集及已有的本地对话记录训练轻量“工具路由 + 回答质量判定”模型；下一轮对话把高置信度工具建议作为参考注入上下文。训练只在启动时执行一次，聊天请求只做 CPU 推理；该模块**不微调云端大模型**，也不改变医疗安全边界。
 - **咨询功能分区**：聊天分为森林知识、身体健康、健康生活建议三个领域。疗养路线页提供完整筛选与地图交互；聊天中的路线/地图问题会通过工具按需回答，并保留演示数据免责声明。
 
 > 虚拟地图与路线长度均为开发演示数据，不代表真实基地内部测绘或现场步道，不是导航服务；不包含实时开放状态、施工、天气、客流、救援设施或无障碍信息。路线规划不能代替医疗意见。
@@ -29,7 +29,7 @@
 | Agent / LLM | LangChain 1.x、LangGraph、LangChain OpenAI 兼容接口 |
 | 向量检索 | Chroma、DashScope `text-embedding-v4`、MMR |
 | 前端 | Vue 3.5（unpkg CDN，无需 Node.js 构建）、原生 CSS / SVG |
-| 可选训练 | PyTorch 2.2+（已包含在 `requirements.txt`；未安装时自动跳过训练功能） |
+| 本地训练 | PyTorch 2.2+（启动时在 CPU 上训练轻量分类器） |
 | 网络依赖 | 聊天/Embedding 需访问对应供应商 API；前端 Vue 与 Google Fonts 默认从 CDN 加载 |
 
 ## 本地环境
@@ -217,31 +217,30 @@ $env:RUN_LIVE_AGENT_TESTS="1"
 python -m pytest tests/test_live_agent.py -q
 ```
 
-## 本地 PyTorch 学习模块（可选）
+## 本地 PyTorch 训练
 
-说明：本项目的对话模型来自云端 API，**不能在本地用 PyTorch 微调这些模型**。这里的 PyTorch 模块是一个从每轮对话学习的小型本地模型：
+说明：本项目的对话模型来自云端 API，**不能在本地用 PyTorch 微调这些模型**。这里的 PyTorch 模块是一个本地辅助分类器：
 
 1. **工具路由头**：根据用户问题预测应优先考虑哪些工具（多标签分类）；
 2. **质量判定头**：根据问题和回答预测该轮是否满足引用、安全和免责声明规则。
 
-训练数据由 `agent/golden_cases.json` 和可选的真实对话记录组成。启用记录后，每轮对话会写入 `data/training/turns.jsonl`（包含问题和回答原文，仅保存在本机）：
+每次运行 `python run.py` 时，服务启动过程都会强制完成一次本地训练，再开始接受请求。训练数据由 `data/training/router_samples.jsonl` 中维护的多样化工具问句与质量正反例、`agent/golden_cases.json` 金标用例，以及存在时的 `data/training/turns.jsonl` 组成。内置样本不需要网络或用户数据；项目不会因检查点已存在而跳过训练。缺少 PyTorch 或训练失败时，服务启动会报错，不会静默降级。
+
+训练使用固定随机种子、小型哈希 n-gram `EmbeddingBag`、Adam 权重衰减、梯度裁剪和验证集早停，训练/验证分离的流程参考 [PyTorch 官方优化教程](https://docs.pytorch.org/tutorials/beginner/basics/optimization_tutorial.html)。工具建议采用轻量分类提示而非强制调度，符合 [LangChain Router 模式](https://docs.langchain.com/oss/python/langchain/multi-agent/router)中分类器负责路由、Agent 继续编排的分工；本地模型不会覆盖 Agent 对实际工具调用的判断。CPU 训练仅发生在服务启动，运行中的聊天只进行轻量 CPU 推理。训练数据或训练逻辑变更后也可手动运行：
 
 ```powershell
-# PyTorch 已包含在 requirements.txt；如当前环境未安装，重新执行一次依赖安装即可。
-python -m pip install -r requirements.txt
-$env:TRAINING_CAPTURE="true"    # PowerShell；或在 .env 设置 TRAINING_CAPTURE=true
-python -m training.train --epochs 40
+python -m training.train
 ```
 
-`training.train` 还支持 `--data`、`--output`、`--batch-size`、`--buckets`、`--no-golden`。训练产物默认为 `data/training/tool_router.pt`。服务启动后会在咨询前加载该模型，把置信度超过 `TOOL_ROUTER_HINT_THRESHOLD`（默认 0.35）的工具建议作为参考注入上下文，并用质量头给出每轮质量分；模型不存在或未安装 PyTorch 时自动跳过，不影响主流程。
+`training.train` 支持 `--data`、`--output`、`--epochs`、`--batch-size`、`--buckets`；内置样本和金标集始终参与训练，不提供跳过选项。训练产物默认为 `data/training/tool_router.pt`，通过临时文件替换方式保存。模型会把置信度超过 `TOOL_ROUTER_HINT_THRESHOLD`（默认 0.35）的工具建议作为参考注入上下文，并由质量头提供每轮辅助质量分；规则化质检仍是权威结果。
 
-隐私提示：`TRAINING_CAPTURE` 默认关闭。开启后本地 JSONL 会保存用户原始问题和回答，请先取得用户同意、避免记录敏感身份信息，并在共享/公网部署前评估合规要求。训练日志和模型产物已被 `.gitignore` 排除。
+隐私提示：`TRAINING_CAPTURE` 默认关闭。开启后本地 JSONL 会保存用户原始问题和回答，并在后续启动训练时被读取；请先取得用户同意、避免记录敏感身份信息，并在共享/公网部署前评估合规要求。内置训练集 `router_samples.jsonl` 随项目维护；用户对话日志和生成的模型检查点已被 `.gitignore` 排除。
 
 ## 数据存储与隐私
 
 - **MySQL**：`users` 保存账号、角色和状态；`conversation_memory` 保存每用户滚动摘要；`eval_turn_records` 保存每轮质检记录（问题前 512 字、工具、质量分、检查明细）；`chat_messages` 为短期消息表，当前 Web 对话流程不写入完整正文，用户登录时会清理。
 - **Chroma**：`chroma_db/` 保存知识库向量索引和 `source_manifest.json` 文件哈希清单；迁移时需整体保留。
-- **本地文件**：`data/training/turns.jsonl` 与 `data/training/tool_router.pt` 仅在启用记录或训练后生成，默认不进入版本控制。
+- **本地文件**：`data/training/router_samples.jsonl` 是随项目维护的训练集；`turns.jsonl` 仅在启用记录后生成；`tool_router.pt` 在每次服务启动训练后生成，后二者默认不进入版本控制。
 - **日志/报告**：`logs/` 与 `reports/` 已加入 `.gitignore`。
 
 ## 测试
@@ -250,17 +249,17 @@ python -m training.train --epochs 40
 python -m pytest -q
 ```
 
-当前 `tests/` 包含 17 个测试文件，主要覆盖：密码哈希与认证失败路径、演示账号迁移、管理员对话限制、读者摘要权限与查询范围、会话清理、工具注册与参数解析、聊天地图/工具事件、金标集评分、知识库结构、虚拟地图数据、路线偏好筛选与步道最短路、模型配置、摘要更新、训练样本/特征工程/推理降级。安装 PyTorch 后还会运行模型前向与微型训练测试；未安装时该测试自动跳过。真实 MySQL 登录/CRUD 和真实模型评测属于集成验证，需要可用的 `.env` 与 API Key。
+当前 `tests/` 包含 17 个测试文件，主要覆盖：密码哈希与认证失败路径、演示账号迁移、管理员对话限制、读者摘要权限与查询范围、会话清理、工具注册与参数解析、聊天地图/工具事件、金标集评分、知识库结构、虚拟地图数据、路线偏好筛选与步道最短路、模型配置、摘要更新、内置训练样本覆盖、模型前向、训练与检查点加载。PyTorch 是必需依赖，缺失时训练测试不会跳过。真实 MySQL 登录/CRUD 和真实模型评测属于集成验证，需要可用的 `.env` 与 API Key。
 
 ## 目录
 
 ```text
 Forest-agent/
 ├── agent/
-│   ├── agent.py            # create_agent 组装
-│   ├── tools.py            # 5 个 Agent 工具与地图载荷
+│   ├── agent.py            # create_agent 智能体组装
+│   ├── tools.py            # 5 个智能体工具与地图载荷
 │   ├── route_planner.py    # 线路筛选与推荐文本
-│   ├── evaluation.py       # 金标集评测器与 CLI
+│   ├── evaluation.py       # 金标集评测器与命令行入口
 │   └── golden_cases.json   # 15 条 Agent 评测用例
 ├── config/
 │   ├── models.yml          # 多供应商模型端点
@@ -269,7 +268,7 @@ Forest-agent/
 ├── data/
 │   ├── base/               # base_zones.json 与地图说明
 │   ├── knowledge/          # 8 篇结构化康养与安全资料
-│   └── training/           # 本机对话样本与模型产物（默认忽略）
+│   └── training/           # 内置路由样本，以及本机对话记录和模型产物
 ├── db/
 │   ├── connection.py       # PyMySQL 连接与查询封装
 │   ├── init_db.py          # 建库建表
@@ -287,17 +286,17 @@ Forest-agent/
 ├── rag/vector_store.py     # Chroma 索引、MMR 检索
 ├── services/virtual_map.py # 虚拟步道网络最短路径
 ├── tests/                  # 17 个离线测试文件
-├── training/               # 可选 PyTorch 工具路由/质量模型
+├── training/               # 必需的 PyTorch 工具路由/质量模型
 │   ├── schema.py           # 每轮对话记录与规则质检
 │   ├── capture.py          # JSONL 训练样本落盘
 │   ├── features.py         # 哈希字符/词 n-gram 特征
 │   ├── model.py            # EmbeddingBag 多任务模型
-│   ├── train.py            # 训练 CLI
+│   ├── train.py            # 训练命令行入口
 │   └── inference.py        # 懒加载推理与工具建议
 ├── utils/security.py       # PBKDF2 密码哈希
 ├── api.py                  # FastAPI 接口与静态页面入口
 ├── run.py                  # 启动脚本：终端输出可点击的本机网址
-├── requirements.txt        # 全部依赖（含可选 PyTorch 训练模块）
+├── requirements.txt        # 全部依赖
 └── .env.example            # 环境变量模板
 ```
 

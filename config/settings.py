@@ -31,6 +31,7 @@ TRAINING_CAPTURE_ENABLED = os.getenv("TRAINING_CAPTURE", "false").strip().lower(
     "1", "true", "yes", "on"
 }
 TRAINING_LOG_PATH = PROJECT_ROOT / os.getenv("TRAINING_LOG_PATH", "data/training/turns.jsonl")
+TRAINING_SAMPLES_PATH = PROJECT_ROOT / "data" / "training" / "router_samples.jsonl"
 TOOL_ROUTER_MODEL_PATH = PROJECT_ROOT / os.getenv("TOOL_ROUTER_MODEL", "data/training/tool_router.pt")
 TOOL_ROUTER_HINT_THRESHOLD = float(os.getenv("TOOL_ROUTER_HINT_THRESHOLD", "0.35"))
 MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")

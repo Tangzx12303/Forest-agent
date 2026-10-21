@@ -1,4 +1,4 @@
-# Only list models whose API key is available in the local .env.
+# 仅列出本地 .env 中已配置对应 API 密钥的模型。
 default_model: qwen-plus
 models:
   - id: qwen-plus

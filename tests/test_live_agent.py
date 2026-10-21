@@ -1,4 +1,4 @@
-"""Optional live smoke test. It is skipped unless explicitly enabled.
+"""真实模型冒烟测试；仅在显式启用后运行。
 
 PowerShell:
     $env:RUN_LIVE_AGENT_TESTS="1"

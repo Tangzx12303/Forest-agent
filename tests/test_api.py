@@ -2,7 +2,7 @@ import anyio
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessageChunk
 
-from api import ChatRequest, app, chat, me
+from api import ChatRequest, app, chat, lifespan, me
 from db import repository
 
 
@@ -12,6 +12,21 @@ def test_vue_frontend_is_served():
     assert response.status_code == 200
     assert "森语" in response.text
     assert "/static/app.js" in response.text
+
+
+def test_lifespan_trains_local_model_before_database(monkeypatch):
+    events = []
+    monkeypatch.setattr("api.train_default_model", lambda: events.append("train"))
+    monkeypatch.setattr("api.initialize_database", lambda: events.append("database"))
+
+    async def run_lifespan():
+        application = type("Application", (), {"state": type("State", (), {})()})()
+        async with lifespan(application):
+            pass
+
+    anyio.run(run_lifespan)
+
+    assert events == ["train", "database"]
 
 
 def test_private_endpoints_require_login():

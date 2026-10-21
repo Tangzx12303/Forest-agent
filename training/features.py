@@ -1,10 +1,10 @@
-"""Deterministic hashed character/word n-gram features (no vocabulary file)."""
+"""确定性哈希字符/词语 n-gram 特征，无需词汇表文件。"""
 from __future__ import annotations
 
 import hashlib
 import re
 
-DEFAULT_BUCKETS = 2**16
+DEFAULT_BUCKETS = 2**13
 WORD_RE = re.compile(r"[a-zA-Z0-9_]+")
 
 
@@ -35,7 +35,7 @@ def hashed_ids(text: str, buckets: int = DEFAULT_BUCKETS) -> list[int]:
 
 
 def encode_batch(texts: list[str], buckets: int = DEFAULT_BUCKETS) -> tuple[list[int], list[int]]:
-    """Flatten ids and return (flat_ids, offsets) for torch.nn.EmbeddingBag."""
+    """展平特征编号，并返回供 torch.nn.EmbeddingBag 使用的 (flat_ids, offsets)。"""
     flat: list[int] = []
     offsets: list[int] = []
     for text in texts:

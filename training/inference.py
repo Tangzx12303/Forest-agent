@@ -1,4 +1,4 @@
-"""Lazy, optional inference for the local tool router and quality head."""
+"""本地工具路由和质量判定头的延迟推理服务。"""
 from __future__ import annotations
 
 from functools import lru_cache
@@ -9,7 +9,7 @@ from training.features import encode_batch
 
 
 class ToolRouterService:
-    """Loads the PyTorch checkpoint on first use; degrades to no-op if unavailable."""
+    """首次使用时加载 PyTorch 检查点；不可用时返回空结果。"""
 
     def __init__(self, path: Path | str | None = None, threshold: float | None = None) -> None:
         self.path = Path(path) if path is not None else Path(TOOL_ROUTER_MODEL_PATH)

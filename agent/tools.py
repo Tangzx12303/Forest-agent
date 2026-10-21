@@ -1,7 +1,6 @@
-"""Agent tool registry.
+"""智能体工具注册表。
 
-Tools return plain text for the model and, for the map tool, a deterministic
-payload that the API can stream to the browser as a UI event.
+工具向模型返回纯文本；地图工具还会返回确定性载荷，供 API 以界面事件形式流式发送到浏览器。
 """
 from __future__ import annotations
 
@@ -24,7 +23,7 @@ MAP_SOURCE_NOTE = (
 
 
 def resolve_zone(value: str) -> dict | None:
-    """Resolve a zone id, Chinese name fragment, or tag to a configured zone."""
+    """根据分区编号、中文名称片段或标签查找已配置的分区。"""
     text = (value or "").strip()
     if not text:
         return None
@@ -42,7 +41,7 @@ def resolve_zone(value: str) -> dict | None:
 
 
 def build_map_payload(focus_zone: str = "") -> dict:
-    """Build the same virtual map payload used by the route page and chat UI."""
+    """构建路线页面和聊天界面共用的虚拟地图载荷。"""
     base = load_base_data()
     focus = resolve_zone(focus_zone)
     return {
@@ -63,7 +62,7 @@ def _zone_hint() -> str:
 
 
 def build_forest_tools(vector_store) -> list[BaseTool]:
-    """Create the tool set bound to one vector store instance."""
+    """创建绑定到指定向量存储实例的工具集。"""
 
     @tool
     def search_forest_knowledge(query: str) -> str:

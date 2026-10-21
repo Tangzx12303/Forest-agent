@@ -7,5 +7,6 @@ chroma_db/
 logs/
 reports/
 data/training/*.jsonl
+!data/training/router_samples.jsonl
 data/training/*.pt
 .DS_Store

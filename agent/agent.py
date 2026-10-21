@@ -9,7 +9,7 @@ from rag.vector_store import VectorStoreService
 
 
 def build_agent(model: ChatOpenAI, vector_store: VectorStoreService):
-    """Build a ReAct agent with the local knowledge, map, and route tools."""
+    """使用本地知识、地图和路线工具构建 ReAct 智能体。"""
     prompt = Path(SYSTEM_PROMPT_PATH).read_text(encoding="utf-8")
     return create_agent(
         model=model,

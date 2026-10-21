@@ -1,4 +1,4 @@
-"""Turn record schema and rule-based weak labels used by the training pipeline."""
+"""训练流程使用的轮次记录结构与规则弱标签。"""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -58,7 +58,7 @@ class TurnRecord:
 
 
 def evaluate_turn(query: str, category: str, tools_used: list[str], answer: str) -> dict:
-    """Produce deterministic quality labels without calling another model."""
+    """不调用其他模型，按固定规则生成质量标签。"""
     text = answer or ""
     forbidden_hits = [term for term in FORBIDDEN_CLAIMS if term in text]
     cited_source = any(marker in text for marker in CITATION_MARKERS)

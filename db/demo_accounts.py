@@ -1,4 +1,4 @@
-"""Opt-in seed data for local demonstrations; never run automatically."""
+"""本地演示用种子数据，仅在用户主动执行时运行。"""
 
 import argparse
 
@@ -27,7 +27,7 @@ DEMO_ACCOUNTS = (
 
 
 def seed_demo_accounts(force: bool = False) -> tuple[list[str], list[str]]:
-    """Create/reset local demo users and migrate known legacy demo usernames."""
+    """创建或重置本地演示用户，并迁移已知的旧演示用户名。"""
     configured = []
     conflicts = []
 

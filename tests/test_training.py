@@ -3,8 +3,8 @@ import json
 from training.capture import append_turn, load_turns
 from training.features import encode_batch, hashed_ids
 from training.inference import ToolRouterService
-from training.schema import TurnRecord, evaluate_turn
-from training.train import build_rows
+from training.schema import TOOL_NAMES, TurnRecord, evaluate_turn
+from training.train import build_rows, load_seed_samples
 
 
 def test_evaluate_turn_accepts_cited_safe_answer():
@@ -117,3 +117,14 @@ def test_build_rows_combines_golden_cases_and_turns():
     assert [row["query"] for row in rows] == ["看地图", "推荐路线"]
     assert rows[0]["quality"] is None
     assert rows[1]["quality"] == 1.0
+
+
+def test_bundled_training_samples_cover_tools_and_quality_labels():
+    samples = load_seed_samples()
+    labeled = [sample["quality"] for sample in samples if sample["answer"]]
+    covered_tools = {tool for sample in samples for tool in sample["tools"]}
+
+    assert len(samples) >= 60
+    assert covered_tools == set(TOOL_NAMES)
+    assert 0.0 in labeled
+    assert 1.0 in labeled

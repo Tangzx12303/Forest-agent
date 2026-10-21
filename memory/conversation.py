@@ -23,7 +23,7 @@ def estimate_tokens(text: str) -> int:
 
 
 def prepare_turn(user_id: int, model) -> tuple[list[dict], str]:
-    """Load durable history, summarize older turns, and return a bounded context."""
+    """加载持久化历史、摘要较早轮次，并返回长度受限的上下文。"""
     messages = repository.load_recent_messages(user_id, limit=200)
     summary = repository.load_summary(user_id)
     kept_reversed = []

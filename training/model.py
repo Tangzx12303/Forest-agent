@@ -1,4 +1,4 @@
-"""PyTorch model: multi-label tool router plus a binary answer-quality head."""
+"""PyTorch 多任务模型：多标签工具路由头和二分类回答质量判定头。"""
 from __future__ import annotations
 
 import torch
@@ -12,8 +12,8 @@ class ToolRouter(nn.Module):
         self,
         num_tools: int,
         buckets: int = DEFAULT_BUCKETS,
-        embedding_dim: int = 64,
-        hidden: int = 96,
+        embedding_dim: int = 32,
+        hidden: int = 48,
     ) -> None:
         super().__init__()
         self.num_tools = num_tools
@@ -24,7 +24,7 @@ class ToolRouter(nn.Module):
         self.trunk = nn.Sequential(
             nn.Linear(embedding_dim, hidden),
             nn.ReLU(),
-            nn.Dropout(0.15),
+            nn.Dropout(0.1),
         )
         self.tool_head = nn.Linear(hidden, num_tools)
         self.quality_head = nn.Linear(hidden, 1)

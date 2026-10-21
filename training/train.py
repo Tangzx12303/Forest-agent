@@ -1,33 +1,60 @@
-"""Train the optional local tool router / quality scorer.
-
-Example:
-    pip install -r requirements.txt
-    set TRAINING_CAPTURE=true        # PowerShell: $env:TRAINING_CAPTURE="true"
-    python -m training.train --epochs 40
-
-Training data comes from two sources:
-1. agent/golden_cases.json (query -> expected tools);
-2. data/training/turns.jsonl captured from real chat turns, including
-   deterministic quality checks. Raw chat text is only logged when
-   TRAINING_CAPTURE is enabled.
-"""
+"""训练必需的本地工具路由和回答质量评分模型。"""
 from __future__ import annotations
 
 import argparse
 import json
 import random
+import copy
 from datetime import datetime, timezone
 from pathlib import Path
 
 from agent.evaluation import GOLDEN_PATH, load_cases
-from config.settings import TOOL_ROUTER_MODEL_PATH, TRAINING_LOG_PATH
+from config.settings import (
+    TOOL_ROUTER_MODEL_PATH,
+    TRAINING_LOG_PATH,
+    TRAINING_SAMPLES_PATH,
+)
 from training.capture import load_turns
 from training.features import DEFAULT_BUCKETS, encode_batch
-from training.schema import TOOL_NAMES
+from training.schema import TOOL_NAMES, evaluate_turn
 
 
-def build_rows(golden_cases: list[dict], turns: list[dict]) -> list[dict]:
+def load_seed_samples(path: Path | str = TRAINING_SAMPLES_PATH) -> list[dict]:
+    samples = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        item = json.loads(line)
+        query = str(item.get("query", "")).strip()
+        if not query:
+            continue
+        tools = [name for name in item.get("tools", []) if name in TOOL_NAMES]
+        answer = str(item.get("answer", ""))
+        category = str(item.get("category", "forest"))
+        checks = evaluate_turn(query, category, tools, answer) if answer else {}
+        samples.append({
+            "query": query,
+            "tools": tools,
+            "answer": answer,
+            "quality": float(checks["overall_pass"]) if answer else None,
+        })
+    return samples
+
+
+def build_rows(
+    golden_cases: list[dict],
+    turns: list[dict],
+    seed_samples: list[dict] | None = None,
+) -> list[dict]:
     rows = []
+    for sample in seed_samples or []:
+        rows.append({
+            "query": sample["query"],
+            "tools": [name for name in sample.get("tools", []) if name in TOOL_NAMES],
+            "answer": str(sample.get("answer", "")),
+            "quality": sample.get("quality"),
+        })
     for case in golden_cases:
         rows.append(
             {
@@ -56,6 +83,44 @@ def build_rows(golden_cases: list[dict], turns: list[dict]) -> list[dict]:
 def _batches(items: list, size: int):
     for start in range(0, len(items), size):
         yield items[start:start + size]
+
+
+def _split_rows(rows: list[dict], seed: int) -> tuple[list[dict], list[dict]]:
+    if len(rows) < 10:
+        return list(rows), list(rows)
+
+    shuffled = list(rows)
+    random.Random(seed).shuffle(shuffled)
+    validation_size = max(1, round(len(shuffled) * 0.2))
+    validation_rows = []
+    validation_ids = set()
+
+    def add_representative(predicate) -> None:
+        candidates = [row for row in shuffled if predicate(row)]
+        if candidates and len(candidates) > 1:
+            candidate = next(
+                (row for row in candidates if id(row) not in validation_ids), None
+            )
+            if candidate is not None and len(validation_rows) < validation_size:
+                validation_rows.append(candidate)
+                validation_ids.add(id(candidate))
+
+    for name in TOOL_NAMES:
+        add_representative(lambda row, tool=name: tool in row["tools"])
+    for label in (0.0, 1.0):
+        add_representative(
+            lambda row, expected=label: row["quality"] == expected
+            and row["answer"]
+        )
+    for row in shuffled:
+        if len(validation_rows) >= validation_size:
+            break
+        if id(row) not in validation_ids:
+            validation_rows.append(row)
+            validation_ids.add(id(row))
+
+    train_rows = [row for row in shuffled if id(row) not in validation_ids]
+    return train_rows, validation_rows
 
 
 def _encode(torch, texts: list[str], buckets: int, device):
@@ -123,7 +188,7 @@ def train_model(
     seed: int = 42,
     device: str = "cpu",
 ) -> tuple[dict, dict]:
-    """Train and return (checkpoint, metrics). Raises ImportError without torch."""
+    """执行训练并返回（检查点、指标）；未安装 torch 时抛出 ImportError。"""
     import torch
     from torch import nn
 
@@ -135,18 +200,55 @@ def train_model(
 
     random.seed(seed)
     torch.manual_seed(seed)
-    shuffled = list(rows)
-    random.shuffle(shuffled)
-    if len(shuffled) >= 5:
-        split = max(1, int(len(shuffled) * 0.8))
-        train_rows, validation_rows = shuffled[:split], shuffled[split:]
-    else:
-        train_rows, validation_rows = shuffled, shuffled
+    train_rows, validation_rows = _split_rows(rows, seed)
 
     model = ToolRouter(len(TOOL_NAMES), buckets=buckets).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    tool_loss_fn = nn.BCEWithLogitsLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+    positive_counts = [
+        sum(name in row["tools"] for row in train_rows)
+        for name in TOOL_NAMES
+    ]
+    negative_counts = [len(train_rows) - count for count in positive_counts]
+    tool_weights = torch.tensor(
+        [min(10.0, negatives / max(1, positives))
+         for positives, negatives in zip(positive_counts, negative_counts)],
+        dtype=torch.float32,
+        device=device,
+    )
+    tool_loss_fn = nn.BCEWithLogitsLoss(pos_weight=tool_weights)
     quality_loss_fn = nn.BCEWithLogitsLoss()
+
+    best_state = copy.deepcopy(model.state_dict())
+    best_validation_loss = float("inf")
+    stale_epochs = 0
+    patience = 3
+    validation_rows = validation_rows or train_rows
+
+    def validation_loss() -> float:
+        model.eval()
+        losses = []
+        with torch.no_grad():
+            for batch in _batches(validation_rows, max(1, batch_size)):
+                ids, offsets = _encode(torch, [row["query"] for row in batch], buckets, device)
+                tool_logits, _ = model(ids, offsets)
+                labels = torch.tensor(
+                    [[1.0 if name in row["tools"] else 0.0 for name in TOOL_NAMES] for row in batch],
+                    device=device,
+                )
+                loss = tool_loss_fn(tool_logits, labels)
+                quality_batch = [row for row in batch if row["answer"] and row["quality"] is not None]
+                if quality_batch:
+                    q_ids, q_offsets = _encode(
+                        torch,
+                        [f"{row['query']}\n{row['answer']}" for row in quality_batch],
+                        buckets,
+                        device,
+                    )
+                    _, q_logits = model(q_ids, q_offsets)
+                    q_labels = torch.tensor([row["quality"] for row in quality_batch], device=device)
+                    loss = loss + quality_loss_fn(q_logits, q_labels)
+                losses.append(float(loss.item()))
+        return sum(losses) / max(1, len(losses))
 
     for epoch in range(max(1, epochs)):
         model.train()
@@ -162,7 +264,7 @@ def train_model(
             )
             loss = tool_loss_fn(tool_logits, labels)
 
-            quality_batch = [row for row in batch if row["answer"]]
+            quality_batch = [row for row in batch if row["answer"] and row["quality"] is not None]
             if quality_batch:
                 q_ids, q_offsets = _encode(
                     torch,
@@ -175,14 +277,23 @@ def train_model(
                     [row["quality"] if row["quality"] is not None else 1.0 for row in quality_batch],
                     device=device,
                 )
-                loss = loss + 0.5 * quality_loss_fn(q_logits, q_labels)
+                loss = loss + quality_loss_fn(q_logits, q_labels)
 
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             epoch_loss += float(loss.item())
-        if (epoch + 1) % max(1, epochs // 5) == 0 or epoch == epochs - 1:
-            print(f"epoch {epoch + 1}/{epochs} loss={epoch_loss / max(1, len(train_rows)):.4f}")
+        current_validation_loss = validation_loss()
+        if current_validation_loss < best_validation_loss:
+            best_validation_loss = current_validation_loss
+            best_state = copy.deepcopy(model.state_dict())
+            stale_epochs = 0
+        else:
+            stale_epochs += 1
+            if stale_epochs >= patience:
+                break
 
+    model.load_state_dict(best_state)
     metrics = _evaluate(torch, model, validation_rows, buckets, device)
     checkpoint = {
         "state_dict": model.state_dict(),
@@ -192,19 +303,48 @@ def train_model(
         "hidden": model.hidden,
         "metrics": metrics,
         "samples": len(rows),
+        "epochs_trained": epoch + 1,
         "trained_at": datetime.now(timezone.utc).isoformat(),
     }
     return checkpoint, metrics
+
+
+def train_default_model(
+    *,
+    output: Path | str = TOOL_ROUTER_MODEL_PATH,
+    epochs: int = 12,
+    batch_size: int = 16,
+) -> dict:
+    """使用项目内置数据训练，并保存应用启动所需的检查点。"""
+    import torch
+
+    rows = build_rows(
+        load_cases(GOLDEN_PATH),
+        load_turns(TRAINING_LOG_PATH),
+        load_seed_samples(),
+    )
+    if not rows:
+        raise RuntimeError("内置训练样本为空，无法启动本地模型。")
+    checkpoint, metrics = train_model(rows, epochs=epochs, batch_size=batch_size)
+    target = Path(output)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    try:
+        torch.save(checkpoint, temporary)
+        temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    print(f"本地工具路由模型已训练：{len(rows)} 条样本，验证指标 {metrics}")
+    return checkpoint
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="训练本地 PyTorch 工具路由/质量模型。")
     parser.add_argument("--data", default=str(TRAINING_LOG_PATH), help="对话记录 JSONL 路径")
     parser.add_argument("--output", default=str(TOOL_ROUTER_MODEL_PATH), help="模型输出路径")
-    parser.add_argument("--epochs", type=int, default=30)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=12)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--buckets", type=int, default=DEFAULT_BUCKETS)
-    parser.add_argument("--no-golden", action="store_true", help="不使用金标评测集")
     args = parser.parse_args(argv)
 
     try:
@@ -214,15 +354,16 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     turns = load_turns(args.data)
-    golden = [] if args.no_golden else load_cases(GOLDEN_PATH)
-    rows = build_rows(golden, turns)
+    golden = load_cases(GOLDEN_PATH)
+    seed_samples = load_seed_samples()
+    rows = build_rows(golden, turns, seed_samples)
     if not rows:
-        print(
-            "没有训练样本。可在 .env 设置 TRAINING_CAPTURE=true 记录真实对话，"
-            "或保留 golden_cases.json 作为基础训练集。"
-        )
+        print("内置训练样本为空，无法启动本地模型训练。")
         return 2
-    print(f"训练样本：{len(rows)}（金标 {len(golden)}，对话记录 {len(turns)}）")
+    print(
+        f"训练样本：{len(rows)}（内置 {len(seed_samples)}，"
+        f"金标 {len(golden)}，本地记录 {len(turns)}）"
+    )
 
     checkpoint, metrics = train_model(
         rows,
@@ -234,8 +375,14 @@ def main(argv: list[str] | None = None) -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     import torch
 
-    torch.save(checkpoint, output)
+    temporary = output.with_suffix(output.suffix + ".tmp")
+    try:
+        torch.save(checkpoint, temporary)
+        temporary.replace(output)
+    finally:
+        temporary.unlink(missing_ok=True)
     print(f"模型已保存：{output}")
+    print(f"训练轮数：{checkpoint['epochs_trained']}/{args.epochs}")
     print(json.dumps(metrics, ensure_ascii=False, indent=2))
     return 0
 

@@ -1,4 +1,4 @@
-"""Append-only local capture of turn records for the optional training loop."""
+"""仅追加写入本地轮次记录，供训练流程使用。"""
 from __future__ import annotations
 
 import json
@@ -9,10 +9,10 @@ from training.schema import TurnRecord
 
 
 def append_turn(record: TurnRecord | dict, path: Path | str | None = None) -> bool:
-    """Append one JSONL record.
+    """追加一条 JSONL 记录。
 
-    When ``path`` is omitted the global TRAINING_CAPTURE switch must be enabled.
-    Passing an explicit path is intended for tests and manual imports.
+    未指定 ``path`` 时，必须启用全局 TRAINING_CAPTURE 开关。
+    显式传入路径用于测试和手动导入。
     """
     if path is None and not TRAINING_CAPTURE_ENABLED:
         return False

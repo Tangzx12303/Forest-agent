@@ -53,7 +53,7 @@ class VectorStoreService:
         return fallback
 
     def index_documents(self) -> int:
-        """Incrementally index UTF-8 TXT/Markdown and PDF knowledge files."""
+        """增量索引 UTF-8 编码的 TXT、Markdown 和 PDF 知识文件。"""
         knowledge_dir = Path(RAG_SETTINGS["knowledge_dir"])
         knowledge_dir.mkdir(parents=True, exist_ok=True)
         self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -81,8 +81,7 @@ class VectorStoreService:
                 document.metadata["title"] = title
                 document.metadata["topic"] = path.stem
             chunks: list[Document] = self.splitter.split_documents(documents)
-            # Lightweight contextual retrieval: every chunk carries its document
-            # topic, so later chunks still match topic-level questions.
+            # 为每个文本块附加文档主题，让后续文本块也能匹配主题类问题。
             for chunk in chunks:
                 chunk.metadata.setdefault("title", title)
                 if not chunk.page_content.lstrip().startswith("主题："):
@@ -98,7 +97,7 @@ class VectorStoreService:
         return indexed_chunks
 
     def search(self, query: str, k: int | None = None) -> list[Document]:
-        """Retrieve diverse chunks; fall back to similarity search for older stores."""
+        """检索内容多样的文本块；旧版存储不支持时回退到相似度搜索。"""
         limit = max(1, int(k or RAG_SETTINGS["retrieval_k"]))
         try:
             return self.store.max_marginal_relevance_search(

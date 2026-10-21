@@ -17,7 +17,7 @@ def select_routes(
     mobility: str = "常规步行",
     path: Path = BASE_ZONES_PATH,
 ) -> tuple[dict, list[dict]]:
-    """Rank only operator-configured route candidates; never invent route geometry."""
+    """仅对运营方配置的路线候选项排序，不编造路线信息。"""
     base = load_base_data(path)
     zone_by_id = {zone["id"]: zone for zone in base["zones"]}
     keywords = {word.strip().lower() for word in goal.replace("，", ",").split(",") if word.strip()}

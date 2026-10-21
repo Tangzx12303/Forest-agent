@@ -31,12 +31,15 @@ from services.virtual_map import calculate_virtual_route
 from training.capture import append_turn
 from training.inference import get_tool_router
 from training.schema import TurnRecord, evaluate_turn, format_checks
+from training.train import train_default_model
 
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    train_default_model()
+    get_tool_router.cache_clear()
     try:
         initialize_database()
         application.state.database_error = ""

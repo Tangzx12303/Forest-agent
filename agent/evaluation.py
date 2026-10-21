@@ -1,12 +1,11 @@
-"""Offline golden-set evaluation for the forest agent.
+"""森林智能体的离线金标集评测。
 
-Run a live evaluation (requires a configured model and DashScope key):
+运行真实模型评测（需要配置模型和 DashScope 密钥）：
 
     python -m agent.evaluation --model qwen-plus --limit 5
 
-The evaluator scores observable behaviour only: which tools were called,
-whether required facts appear, whether forbidden claims appear, and whether
-knowledge answers cite local material. It does not call an LLM judge.
+评测器只对可观察行为评分：调用了哪些工具、是否包含必需事实、是否出现禁用表述，
+以及知识问答是否引用本地资料。评测过程不会调用 LLM 评审。
 """
 from __future__ import annotations
 

@@ -1,10 +1,8 @@
-import pytest
-
-torch = pytest.importorskip("torch")
+import torch
 
 from training.model import ToolRouter  # noqa: E402
 from training.schema import TOOL_NAMES  # noqa: E402
-from training.train import train_model  # noqa: E402
+from training.train import train_default_model, train_model  # noqa: E402
 
 
 def test_model_forward_returns_tool_and_quality_outputs():
@@ -60,3 +58,16 @@ def test_train_model_runs_on_tiny_dataset():
     assert checkpoint["tools"] == TOOL_NAMES
     assert "macro_f1" in metrics
     assert "quality_accuracy" in metrics
+
+
+def test_default_training_writes_loadable_checkpoint(tmp_path):
+    output = tmp_path / "tool_router.pt"
+
+    checkpoint = train_default_model(output=output, epochs=2, batch_size=16)
+    restored = torch.load(output, map_location="cpu", weights_only=True)
+
+    assert output.is_file()
+    assert checkpoint["samples"] >= 60
+    assert restored["tools"] == TOOL_NAMES
+    assert "macro_f1" in restored["metrics"]
+    assert "quality_accuracy" in restored["metrics"]

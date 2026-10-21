@@ -1,1 +1,1 @@
-"""Optional local learning loop for tool routing and answer quality scoring."""
+"""本地工具路由与回答质量评分训练模块。"""

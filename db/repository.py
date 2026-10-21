@@ -22,7 +22,7 @@ def seed_demo_account(
     legacy_usernames: tuple[str, ...] = (),
     force: bool = False,
 ) -> str:
-    """Create or migrate a known local demo account with its intentionally weak password.
+    """使用专供本地演示的弱密码创建或迁移已知演示账号。
 
     同名账号已被非演示账号占用时默认跳过。传入 ``force=True`` 时强制把该账号改为演示账号，
     并停用同时存在的旧演示账号，适合在本机演示库中修复无法登录的演示管理员。
@@ -130,7 +130,7 @@ def list_users() -> list[dict]:
 
 
 def list_reader_summaries() -> list[dict]:
-    """List reader accounts with their rolling summary; never exposes full transcripts."""
+    """列出读者账号及其滚动摘要，不返回完整对话记录。"""
     return query_all(
         "SELECT u.id,u.username,u.display_name,u.status,COALESCE(m.summary,'') AS summary,m.updated_at "
         "FROM users u LEFT JOIN conversation_memory m ON m.user_id=u.id "
